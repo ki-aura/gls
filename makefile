@@ -9,7 +9,7 @@ endif
 # Common flags
 CFLAGS_COMMON = 
 TARGET        = gls
-SRC           = gls.c 
+SRC           = gls.c options.c display.c
 OBJ           = $(SRC:.c=.o)
 
 .PHONY: all clean release tidy
