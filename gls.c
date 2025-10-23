@@ -3,14 +3,10 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
-#include <time.h>
 #include <unistd.h>
-#include <ctype.h>
 #include <locale.h>
-#include <errno.h>
 #include "gls.h"
 #include "options.h"
 #include "display.h"
