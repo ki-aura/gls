@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include <errno.h>
 
+#define GLS_VERSION 1.0.0
+
 #ifndef PATH_MAX
 #define PATH_MAX 1024
 #endif

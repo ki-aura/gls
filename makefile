@@ -8,19 +8,9 @@ endif
 
 # Common flags
 CFLAGS_COMMON = 
-TARGET        = gex
-SRC           = gex.c file_handling.c gex_helper_funcs.c keyb_man.c win_man.c rbtree.c
+TARGET        = gls
+SRC           = gls.c 
 OBJ           = $(SRC:.c=.o)
-
-# NCURSES flags
-ifeq ($(UNAME_S),Darwin)
-    # macOS: use system ncurses, panel
-    NCURSES_FLAGS = -lncurses -lpanel
-else
-    # Linux: use Homebrew's ncurses
-    NCURSES_PREFIX := $(shell brew --prefix ncurses)
-    NCURSES_FLAGS = -I$(NCURSES_PREFIX)/include -L$(NCURSES_PREFIX)/lib -lncurses -lpanel
-endif
 
 .PHONY: all clean release tidy
 
@@ -48,7 +38,7 @@ maxtidy:
 
 # Build rules
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $(OBJ) $(NCURSES_FLAGS)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) 
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
