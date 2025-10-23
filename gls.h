@@ -19,6 +19,7 @@ typedef struct {
     bool sort_by_time;    // -t, --time: sort by modification time
     bool show_help;       // -h, --help: show help message
     bool show_version;    // -v, --version: show version
+    int truncate_length;  // -T, --Trunc: truncate filenames to this length (0 = disabled)
     char **paths;         // array of target directory paths
     int path_count;       // number of paths
 } Options;

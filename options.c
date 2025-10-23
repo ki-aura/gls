@@ -3,6 +3,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <stdbool.h>
+#include <errno.h>
 #include "gls.h"
 #include "options.h"
 
@@ -25,6 +26,7 @@ typedef struct {
 static const OptionHelp help_table[] = {
     OPT_HELP("-a", "--all",     NULL, "Show hidden files (files starting with .)"),
     OPT_HELP("-t", "--time",    NULL, "Sort by modification time (newest first)"),
+    OPT_HELP("-T", "--Trunc",   "<N>", "Truncate filenames to N characters (1-255)"),
     OPT_HELP("-h", "--help",    NULL, "Show this help message"),
     OPT_HELP("-v", "--version", NULL, "Show version information"),
     OPT_HELP_END
@@ -150,6 +152,19 @@ void parse_options(int argc, char *argv[], Options *opts) {
             case 'a': opts->show_all = true; break;
             case 't': opts->sort_by_time = true; break;
             case 'h': opts->show_help = true; break;
+            case 'T': {
+                char *endptr = NULL;
+                errno = 0;
+                long value = strtol(optarg, &endptr, 10);
+                if (errno != 0 || !endptr || *endptr != '\0' || value < 1 || value > 255) {
+                    fprintf(stderr, "Invalid truncation length '%s'. Expected integer between 1 and 255.\n", optarg);
+                    free(short_opts);
+                    free(long_opts);
+                    exit(EXIT_FAILURE);
+                }
+                opts->truncate_length = (int)value;
+                break;
+            }
             case 'v': opts->show_version = true; break;
             default:
                 show_option_help(argv[0]);
