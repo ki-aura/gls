@@ -1,3 +1,17 @@
+/*
+ * display.c - Rendering helpers for the long-format listing
+ * ----------------------------------------------------------
+ * The routines in this file take the raw metadata gathered by gls.c and turn
+ * it into user-friendly terminal output.  This includes:
+ *   - Translating struct stat fields into POSIX permission strings.
+ *   - Formatting timestamps and sizes so they are easy to scan.
+ *   - Resolving symlink targets and sanitising control characters to avoid
+ *     confusing terminal rendering.
+ *
+ * Think of this module as the presentation layer: all filesystem state has
+ * already been collected, so the focus here is on consistent, legible output.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -8,8 +22,16 @@
 
 /**
  * Print a single file entry
+ *
+ * @param path      The directory path used to resolve symlink targets.  For
+ *                  direct file arguments this is an empty string so the raw
+ *                  filename is used.
+ * @param filename  The leaf name as returned by readdir()/lstat().
+ * @param st        File metadata snapshot, already populated by the caller.
+ * @param stats     Running totals shared across entries so we can produce a
+ *                  summary for single-directory listings.
  */
-void print_file_entry(const char *path, const char *filename, 
+void print_file_entry(const char *path, const char *filename,
                      const struct stat *st, FileStats *stats) {
     char perms[11];
     char username[256];
@@ -28,6 +50,8 @@ void print_file_entry(const char *path, const char *filename,
         } else {
             snprintf(fullpath, sizeof(fullpath), "%s/%s", path, filename);
         }
+        // When a symlink resolves to a directory we count it separately so the
+        // summary distinguishes "links to dirs" from regular symlinks.
         if (stat(fullpath, &target_st) == 0 && S_ISDIR(target_st.st_mode))
             stats->dir_symlinks++;
         else
@@ -57,6 +81,9 @@ void print_file_entry(const char *path, const char *filename,
         } else {
             snprintf(fullpath, sizeof(fullpath), "%s/%s", path, filename);
         }
+        // readlink() truncates to the provided buffer size, so the caller
+        // ensures linkbuf is large enough for most paths.  We still sanitise
+        // the output in get_link_target() to guarantee a clean display.
         if (get_link_target(fullpath, linkbuf, sizeof(linkbuf)) == 0)
             printf(" -> %s", linkbuf);
     }
@@ -78,6 +105,11 @@ void human_size(off_t bytes, char *out, size_t outsz){
     snprintf(out, outsz, (u == 0) ? "%.0f%s" : "%.1f%s", size, units[u]);
 }
 
+/**
+ * Replace non-printable characters with '?' so control codes embedded in file
+ * names do not change terminal state.  This mirrors the defensive behaviour of
+ * GNU ls when given filenames with escape sequences.
+ */
 void sanitize_string(char *dest, const char *src, size_t max_len) {
     size_t i;
     for (i = 0; i < max_len - 1 && src[i] != '\0'; i++) {
@@ -86,6 +118,11 @@ void sanitize_string(char *dest, const char *src, size_t max_len) {
     dest[i] = '\0';
 }
 
+/**
+ * Convert the permission/mode bits from struct stat into the familiar
+ * "drwxr-xr-x" textual representation.  Special bits (setuid/setgid/sticky)
+ * are encoded using the lower-case/upper-case letters that coreutils uses.
+ */
 void get_permissions(mode_t mode, char *perms) {
     if (S_ISDIR(mode)) perms[0] = 'd';
     else if (S_ISLNK(mode)) perms[0] = 'l';
@@ -107,6 +144,11 @@ void get_permissions(mode_t mode, char *perms) {
     perms[10] = '\0';
 }
 
+/**
+ * Format modification time using the same cut-off as BSD/GNU ls: recent files
+ * show hours/minutes, while older files show the year.  Negative diffs indicate
+ * clock skew and also fall back to the year format.
+ */
 void get_mod_time(time_t mtime, char *timestr, size_t len) {
     struct tm *tm_info;
     time_t now = time(NULL);
@@ -124,5 +166,3 @@ void get_mod_time(time_t mtime, char *timestr, size_t len) {
         strftime(timestr, len, "%b %e %H:%M", tm_info);
     }
 }
-
-

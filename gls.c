@@ -1,3 +1,21 @@
+/*
+ * gls.c - Core program logic for the `gls` utility
+ * -----------------------------------------------
+ * This translation unit coordinates command-line parsing, directory traversal,
+ * metadata gathering, and final rendering of file listings.  The code is split
+ * into a few logical clusters:
+ *   1. Memory helpers that hard-fail on allocation errors.
+ *   2. Lightweight UID/GID lookup caches so expensive NSS queries are avoided
+ *      while iterating large directories.
+ *   3. Utility helpers for resolving link targets and sorting file entries.
+ *   4. The `list_directory` and `main` routines that orchestrate traversal,
+ *      statistics gathering, and delegating to the display layer.
+ *
+ * The comments in this file aim to outline the data flow for developers who
+ * may be less familiar with POSIX filesystem semantics such as symbolic link
+ * handling, block accounting, and permission decoding.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +33,11 @@
 // Memory-Safe Allocation Helpers
 // ========================================
 
+/**
+ * Wrapper around malloc() that terminates the program if memory cannot be
+ * allocated.  This keeps the rest of the codebase free from repetitive error
+ * handling while still failing safely.
+ */
 void *xmalloc(size_t size) {
     void *ptr = malloc(size);
     if (ptr == NULL && size > 0) {
@@ -24,6 +47,11 @@ void *xmalloc(size_t size) {
     return ptr;
 }
 
+/**
+ * Zero-initialising allocator with the same fatal-on-failure semantics as
+ * xmalloc().  Used heavily when building arrays of structs so that any padding
+ * bytes and counters start from a known state.
+ */
 void *xcalloc(size_t count, size_t size) {
     void *ptr = calloc(count, size);
     if (ptr == NULL && count > 0 && size > 0) {
@@ -33,6 +61,10 @@ void *xcalloc(size_t count, size_t size) {
     return ptr;
 }
 
+/**
+ * Safe wrapper around realloc().  If the resize fails, the original pointer is
+ * freed before the process exits to avoid leaks in diagnostic tooling.
+ */
 void *xrealloc(void *ptr, size_t size) {
     void *new_ptr = realloc(ptr, size);
     if (new_ptr == NULL && size > 0) {
@@ -43,6 +75,10 @@ void *xrealloc(void *ptr, size_t size) {
     return new_ptr;
 }
 
+/**
+ * strdup() variant that keeps the same fail-fast behaviour as the other
+ * allocators.  Symbolic link names and directory entries flow through here.
+ */
 char *xstrdup(const char *str) {
     if (!str) return NULL;
     char *copy = strdup(str);
@@ -76,6 +112,10 @@ static GidCache gid_cache[CACHE_SIZE];
 
 /**
  * Initialize caches (call once at startup)
+ *
+ * The UID/GID caches are simple round-robin buffers that avoid repeated calls
+ * into the name service switch when listing many files owned by the same
+ * user/group.
  */
 void init_caches(void) {
     for (int i = 0; i < CACHE_SIZE; i++) {
@@ -86,6 +126,10 @@ void init_caches(void) {
 
 /**
  * Lookup UID in cache, or fetch and cache it
+ *
+ * When cache misses occur we consult getpwuid() and immediately store the
+ * sanitised result back into the circular cache.  The sanitisation step keeps
+ * unexpected control characters out of the terminal rendering.
  */
 static const char *get_cached_username(uid_t uid, char *buf, size_t len) {
     for (int i = 0; i < CACHE_SIZE; i++) {
@@ -115,6 +159,10 @@ static const char *get_cached_username(uid_t uid, char *buf, size_t len) {
 
 /**
  * Lookup GID in cache, or fetch and cache it
+ *
+ * Mirrors get_cached_username() but operates on group identifiers.  This keeps
+ * directory listings deterministic even when group names contain locale
+ * specific characters.
  */
 static const char *get_cached_groupname(gid_t gid, char *buf, size_t len) {
     for (int i = 0; i < CACHE_SIZE; i++) {
@@ -146,15 +194,26 @@ static const char *get_cached_groupname(gid_t gid, char *buf, size_t len) {
 // Utility Functions
 // ========================================
 
+/**
+ * Public accessor for username lookups that hides the caching machinery from
+ * the rest of the codebase.
+ */
 void get_username(uid_t uid, char *username, size_t len) {
     get_cached_username(uid, username, len);
 }
 
+/**
+ * Public accessor for group lookups.
+ */
 void get_groupname(gid_t gid, char *groupname, size_t len) {
     get_cached_groupname(gid, groupname, len);
 }
 
-
+/**
+ * Resolve the target of a symbolic link and normalise the string for terminal
+ * output.  We intentionally use readlink() so that broken links still report
+ * their stored target paths instead of failing silently.
+ */
 int get_link_target(const char *path, char *target, size_t len) {
     ssize_t ret = readlink(path, target, len - 1);
     if (ret == -1) return -1;
@@ -170,12 +229,6 @@ int get_link_target(const char *path, char *target, size_t len) {
 // ========================================
 // Sorting
 // ========================================
-
-typedef struct {
-    FileEntry *entries;
-    int count;
-    const Options *opts;
-} SortContext;
 
 int compare_entries(const void *a, const void *b) {
     const FileEntry *ea = (const FileEntry *)a;
@@ -197,6 +250,11 @@ const Options *sort_options_ptr = NULL;
 // Directory Listing
 // ========================================
 
+/**
+ * Read directory entries, gather per-file metadata, and emit a long-format
+ * listing.  `stats` is accumulated for a summary of totals presented when the
+ * user lists a single directory.
+ */
 int list_directory(const char *path, const Options *opts, bool show_header) {
     DIR *dir;
     struct dirent *entry;
@@ -226,6 +284,8 @@ int list_directory(const char *path, const Options *opts, bool show_header) {
         snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
         if (lstat(fullpath, &st) == -1) continue;
 
+        // Track filesystem block usage as reported by lstat(); the POSIX spec
+        // defines st_blocks in 512-byte units.
         stats.total_blocks += st.st_blocks;
 
         if (count >= capacity) {
@@ -242,6 +302,8 @@ int list_directory(const char *path, const Options *opts, bool show_header) {
     closedir(dir);
 
     if (show_header) printf("%s:\n", path);
+    // st_blocks is expressed in 512B blocks, while coreutils `ls` reports the
+    // sum in 1K blocks.  Dividing by two matches the user expectation.
     printf("total %ld\n", stats.total_blocks / 2);
 
     sort_options_ptr = opts;
@@ -288,8 +350,9 @@ int main(int argc, char *argv[]) {
         goto clean_exit;
     }
 
-
-    // Separate files and directories first to match ls behaviour when multiple arguments are given.
+    // Separate files and directories first to match ls behaviour when multiple
+    // arguments are given.  Keeping the two lists independent makes it trivial
+    // to reproduce the "files first, then directories" ordering from GNU ls.
     char **file_paths = xcalloc(opts.path_count, sizeof(char *));
     char **dir_paths  = xcalloc(opts.path_count, sizeof(char *));
     int file_count = 0, dir_count = 0;
@@ -313,7 +376,9 @@ int main(int argc, char *argv[]) {
         struct stat lst;
         if (lstat(file_paths[i], &lst) == 0) {
             FileStats dummy = {0};
-            // Pass "" as path since opts.paths[i] is the full path/filename
+            // Pass "" as path since opts.paths[i] is the full path/filename.
+            // This ensures print_file_entry() doesn't add an extra directory
+            // separator when the user provided a literal file.
             print_file_entry("", file_paths[i], &lst, &dummy);
         }
     }
@@ -336,4 +401,3 @@ clean_exit:
     free(opts.paths);
     return result;
 }
-

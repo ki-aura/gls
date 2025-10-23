@@ -1,3 +1,13 @@
+/*
+ * options.c - Command-line parsing and help generation
+ * ----------------------------------------------------
+ * Responsible for translating argv[] into the Options struct consumed by the
+ * rest of the program.  A central help table drives both getopt_long() and the
+ * formatted usage output so that the description of each switch lives in one
+ * place.  Additional commentary explains how truncation, path collection, and
+ * validation tie into later filesystem operations.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +44,9 @@ static const OptionHelp help_table[] = {
 
 /**
  * Display formatted help
+ *
+ * Tightly couples the help text to the canonical option definitions above so
+ * that the usage information always matches the flags we accept.
  */
 void show_option_help(const char *program_name) {
     fprintf(stdout, "Usage: %s [options] [directory...]\n\n", program_name);
@@ -45,15 +58,15 @@ void show_option_help(const char *program_name) {
 
         if (opt->long_opt) {
             if (opt->arg_name) {
-                snprintf(opt_str, sizeof(opt_str), "%s, %s %s", 
+                snprintf(opt_str, sizeof(opt_str), "%s, %s %s",
                         opt->short_opt, opt->long_opt, opt->arg_name);
             } else {
-                snprintf(opt_str, sizeof(opt_str), "%s, %s", 
+                snprintf(opt_str, sizeof(opt_str), "%s, %s",
                         opt->short_opt, opt->long_opt);
             }
         } else {
             if (opt->arg_name) {
-                snprintf(opt_str, sizeof(opt_str), "%s %s", 
+                snprintf(opt_str, sizeof(opt_str), "%s %s",
                         opt->short_opt, opt->arg_name);
             } else {
                 snprintf(opt_str, sizeof(opt_str), "%s", opt->short_opt);
@@ -68,6 +81,10 @@ void show_option_help(const char *program_name) {
 
 /**
  * Build short option string from help table
+ *
+ * getopt_long() expects the short option string to include ':' markers for
+ * options that require arguments.  Because we derive the string from the help
+ * table there is zero risk of it falling out of sync.
  */
 static char *build_short_opts(const OptionHelp *help_table) {
     size_t capacity = 64;
@@ -105,6 +122,10 @@ static char *build_short_opts(const OptionHelp *help_table) {
 
 /**
  * Build long option array from help table
+ *
+ * The GNU-style long options reuse the same metadata; the trailing sentinel
+ * struct option is already zeroed by calloc() so getopt_long() knows when to
+ * stop.
  */
 static struct option *build_long_opts(const OptionHelp *help_table, size_t *count) {
     size_t n = 0;
@@ -138,6 +159,11 @@ static struct option *build_long_opts(const OptionHelp *help_table, size_t *coun
 
 /**
  * Parse command-line options
+ *
+ * Populates the Options struct with both feature toggles and the target paths
+ * to enumerate.  Any validation errors (such as invalid truncation lengths) are
+ * reported immediately because the downstream filesystem code assumes that
+ * Options has been fully sanitised.
  */
 void parse_options(int argc, char *argv[], Options *opts) {
     memset(opts, 0, sizeof(Options));

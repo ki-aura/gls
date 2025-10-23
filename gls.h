@@ -1,6 +1,15 @@
 #ifndef GLS_H
 #define GLS_H
 
+/*
+ * gls.h - Shared data structures and prototypes
+ * ---------------------------------------------
+ * This header ties the three implementation files together by exposing the
+ * program-wide configuration, statistics tracking, and utility helpers.  Any
+ * module that needs to reason about filesystem metadata should include this
+ * file rather than duplicating struct definitions.
+ */
+
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -14,6 +23,11 @@
 // Shared Structures
 // ========================================
 
+/**
+ * Captures the command-line switches that shape program behaviour.  Parsed by
+ * options.c and consumed by both gls.c (for traversal decisions) and display.c
+ * (for formatting hints such as truncation length).
+ */
 typedef struct {
     bool show_all;        // -a, --all: show files starting with .
     bool sort_by_time;    // -t, --time: sort by modification time
@@ -24,6 +38,10 @@ typedef struct {
     int path_count;       // number of paths
 } Options;
 
+/**
+ * Mutable counters accumulated while traversing a directory tree.  The totals
+ * feed the summary output shown after listing a single directory.
+ */
 typedef struct {
     int regular_files;
     int symlinks;
@@ -32,6 +50,11 @@ typedef struct {
     long total_blocks;
 } FileStats;
 
+/**
+ * Intermediate representation of a directory entry.  We buffer the name, the
+ * modification timestamp (for sorting), and the full stat struct so we can
+ * later hand the data to the display layer without additional syscalls.
+ */
 typedef struct {
     char *name;
     time_t mtime;
@@ -50,9 +73,9 @@ void init_caches(void);
 void get_username(uid_t uid, char *username, size_t len);
 void get_groupname(gid_t gid, char *groupname, size_t len);
 
-void *xmalloc(size_t size) ;
-void *xcalloc(size_t count, size_t size) ;
-void *xrealloc(void *ptr, size_t size) ;
-char *xstrdup(const char *str) ;
+void *xmalloc(size_t size);
+void *xcalloc(size_t count, size_t size);
+void *xrealloc(void *ptr, size_t size);
+char *xstrdup(const char *str);
 
 #endif
