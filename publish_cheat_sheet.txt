@@ -1,0 +1,19 @@
+git tag --list
+grep  "GEX_VERSION" gex.h
+
+git add .
+git commit -m "ready for v2.2.2"
+git push
+git tag -a v2.2.2 -m "Release v2.2.2"
+git push origin v2.2.2
+gh release create v2.2.2 --title "Release v2.2.2" --notes "Release v2.2.2 notes..."
+cd /opt/homebrew/Library/Taps/ki-aura/homebrew-gex
+curl -L -o v2.2.2.tar.gz https://github.com/ki-aura/gex/archive/refs/tags/v2.2.2.tar.gz
+shasum -a 256 v2.2.2.tar.gz
+rm *.gz
+
+nano Formula/gex.rb
+
+git add Formula/gex.rb
+git commit -m "ready for v2.2.2"
+git push
