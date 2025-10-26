@@ -1,19 +1,19 @@
 git tag --list
-grep  "GLS_VERSION" gls.c
+grep  "GLS_VERSION" long_opt.h
 
 git add .
-git commit -m "ready for v1.0.0"
+git commit -m "ready for v1.2.0"
 git push
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-gh release create v1.0.0 --title "Release v1.0.0" --notes "Release v1.0.0 notes..."
+git tag -a v1.2.0 -m "Release v1.2.0"
+git push origin v1.2.0
+gh release create v1.2.0 --title "Release v1.2.0" --notes "Release v1.2.0 notes..."
 cd /opt/homebrew/Library/Taps/ki-aura/homebrew-gls
-curl -L -o v1.0.0.tar.gz https://github.com/ki-aura/gls/archive/refs/tags/v1.0.0.tar.gz
-shasum -a 256 v1.0.0.tar.gz
+curl -L -o v1.2.0.tar.gz https://github.com/ki-aura/gls/archive/refs/tags/v1.2.0.tar.gz
+shasum -a 256 v1.2.0.tar.gz
 rm *.gz
 
 nano Formula/gls.rb
 
 git add Formula/gls.rb
-git commit -m "ready for v1.0.0"
+git commit -m "ready for v1.2.0"
 git push

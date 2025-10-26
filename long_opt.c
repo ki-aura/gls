@@ -43,7 +43,7 @@ static void print_help(Options* opts, const char *prog_name) {
 }
 
 static void print_version(Options* opts, const char *prog_name) {
-    printf("%s version: %s\n", prog_name, PROG_VERSION);
+    printf("%s version: %s\n", prog_name, GLS_VERSION);
 	free_options(opts);
 	exit(EXIT_SUCCESS);
 }

@@ -18,8 +18,6 @@
 
 #include "long_opt.h"   // <-- Options now comes from here
 
-#define GLS_VERSION "1.2.0"
-
 // ========================================
 // Shared Structures (except Options)
 // ========================================
