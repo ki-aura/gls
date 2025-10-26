@@ -52,10 +52,17 @@ void print_file_entry(const char *path, const char *filename,
         }
         // When a symlink resolves to a directory we count it separately so the
         // summary distinguishes "links to dirs" from regular symlinks.
-        if (stat(fullpath, &target_st) == 0 && S_ISDIR(target_st.st_mode))
-            stats->dir_symlinks++;
-        else
+        if (stat(fullpath, &target_st) == 0) {
+            // Avoid recursing into symlink loops
+            if (S_ISLNK(target_st.st_mode))
+                stats->symlinks++;
+            else if (S_ISDIR(target_st.st_mode))
+                stats->dir_symlinks++;
+            else
+                stats->symlinks++;
+        } else {
             stats->symlinks++;
+        }
     } else if (S_ISDIR(st->st_mode)) stats->directories++;
     else if (S_ISREG(st->st_mode)) stats->regular_files++;
 
