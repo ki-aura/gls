@@ -7,7 +7,7 @@
 // Constants
 // ===============================
 #define MAX_OPERANDS    256
-#define GLS_VERSION	"1.2.0"
+#define GLS_VERSION	"1.3.0"
 
 // ===============================
 // Structs

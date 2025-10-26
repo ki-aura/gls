@@ -16,7 +16,7 @@
 // set long options
 static struct option long_options[] = {
 	{"help",    no_argument, 0, 'h'},
-	{"version", no_argument, 0, 'V'},
+	{"version", no_argument, 0, 'v'},
 	{"all",     no_argument, 0, 'a'},
 	{"time",    no_argument, 0, 't'},
 	{0, 0, 0, 0}
@@ -24,7 +24,7 @@ static struct option long_options[] = {
 
 //set short options
 //NOTE: short options that need an argument must be followed by a :
-static const char short_options[] = "hVat"; // 
+static const char short_options[] = "hvat"; // 
     
 // ===============================
 // Internal Functions
@@ -34,7 +34,7 @@ static void print_help(Options* opts, const char *prog_name) {
     printf("Usage: %s [OPTIONS] target file(s)/directory(s)...\n", prog_name);
     printf("\nOptions:\n");
     printf("  -h, --help              Show this help message and exit\n");
-    printf("  -V, --version           Show version and exit\n");
+    printf("  -v, --version           Show version and exit\n");
     printf("  -a, --all               Show All (include files starting with .)\n");
     printf("  -t, --time              Sort by time (default is alphabetical)\n");
     printf("\nIf no target is specified, default will be current directory\n");
@@ -42,8 +42,8 @@ static void print_help(Options* opts, const char *prog_name) {
 	exit(EXIT_SUCCESS);
 }
 
-static void print_version(Options* opts, const char *prog_name) {
-    printf("%s version: %s\n", prog_name, GLS_VERSION);
+static void print_version(Options* opts) {
+    printf("Gls version: ki-aura %s\n", GLS_VERSION);
 	free_options(opts);
 	exit(EXIT_SUCCESS);
 }
@@ -78,7 +78,7 @@ Options* parse_loptions(int argc, char *argv[]) {
         switch (opt) {
 			// ------ standard help & version options --------
             case 'h': print_help(opts, argv[0]); break;
-            case 'V': print_version(opts, argv[0]); break;
+            case 'v': print_version(opts); break;
 
 			// ------ simple bool options --------
             case 'a':  opts->show_all = true; break;
