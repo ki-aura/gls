@@ -62,7 +62,7 @@ static void free_string_array(char **array, int count) {
 // Public API functions
 // ===============================
 
-Options* parse_loptions(int argc, char *argv[]) {
+Options* parse_loptions(int argc, char *argv[], const char *default_operand) {
 
 	// Create opts structure and set any non-zero defaults
     Options *opts = calloc(1, sizeof(Options));

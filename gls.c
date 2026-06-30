@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "");
     init_caches();
 
-    Options *opts = parse_loptions(argc, argv);
+    Options *opts = parse_loptions(argc, argv, NULL);
     // (Help/version handled internally by long_opt)
 
     char **file_paths = xcalloc(opts->operand_count, sizeof(char *));

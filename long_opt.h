@@ -7,7 +7,7 @@
 // Constants
 // ===============================
 #define MAX_OPERANDS    256
-#define GLS_VERSION	"1.3.0"
+#define GLS_VERSION	"1.3.1"
 
 // ===============================
 // Structs
@@ -31,7 +31,7 @@ typedef struct {
 
 // Parses command-line options into a dynamically allocated Options struct.
 // Exits with error on invalid input.
-Options *parse_loptions(int argc, char *argv[]);
+Options *parse_loptions(int argc, char *argv[],  const char *default_operand);
 
 // Frees the Options structure and all its dynamically allocated members.
 void free_options(Options *opts);
